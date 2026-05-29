@@ -25,7 +25,8 @@ public class TodoWebApp {
         
         server.createContext("/", new StaticHandler());
         server.createContext("/api/todos", new ApiHandler());
-        server.createContext("/api/status", new StatusHandler()); // New endpoint for CPU monitoring
+        server.createContext("/api/status", new StatusHandler()); // New endpoint for web UI
+        server.createContext("/metrics", new MetricsHandler()); // Prometheus metrics endpoint
         
         server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool()); // Use a thread pool instead of a single thread to avoid starvation
         server.start();
@@ -73,6 +74,30 @@ public class TodoWebApp {
                 String response = String.format("{\"cpu\": %.1f}", processCpuLoad * 100);
                 
                 exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+                exchange.sendResponseHeaders(200, response.length());
+                OutputStream os = exchange.getResponseBody();
+                os.write(response.getBytes());
+                os.close();
+            } else {
+                exchange.sendResponseHeaders(405, -1);
+            }
+        }
+    }
+
+    static class MetricsHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+                double processCpuLoad = osBean.getProcessCpuLoad();
+                if (processCpuLoad < 0) processCpuLoad = 0.0;
+                
+                // Prometheus format requires plain text
+                String response = "# HELP java_process_cpu_load The CPU usage for the Java process (0.0 to 1.0).\n" +
+                                  "# TYPE java_process_cpu_load gauge\n" +
+                                  "java_process_cpu_load " + processCpuLoad + "\n";
+                
+                exchange.getResponseHeaders().add("Content-Type", "text/plain; version=0.0.4; charset=utf-8");
                 exchange.sendResponseHeaders(200, response.length());
                 OutputStream os = exchange.getResponseBody();
                 os.write(response.getBytes());
