@@ -228,8 +228,8 @@
         </ul>
 
         <div class="status-bar">
-            <div class="pulse"></div>
-            System Active & Optimized
+            <div class="pulse" id="statusPulse"></div>
+            System Active | Java CPU: <span id="cpuUsage" style="font-weight: bold; margin-left: 4px; color: #ef4444;">Calculating...</span>
         </div>
     </div>
 
@@ -301,6 +301,38 @@
                 console.error("Failed to delete todo", err);
             }
         }
+
+        // Fetch CPU status
+        async function fetchStatus() {
+            try {
+                const response = await fetch('/api/status');
+                const data = await response.json();
+                const cpuValue = data.cpu.toFixed(1);
+                const cpuSpan = document.getElementById('cpuUsage');
+                const pulse = document.getElementById('statusPulse');
+                
+                cpuSpan.textContent = cpuValue + '%';
+                
+                // Change color based on CPU load
+                if (data.cpu > 80) {
+                    cpuSpan.style.color = '#ef4444'; // Red
+                    pulse.style.backgroundColor = '#ef4444';
+                } else if (data.cpu > 50) {
+                    cpuSpan.style.color = '#f59e0b'; // Orange
+                    pulse.style.backgroundColor = '#f59e0b';
+                } else {
+                    cpuSpan.style.color = '#10b981'; // Green
+                    pulse.style.backgroundColor = '#10b981';
+                }
+                
+            } catch (err) {
+                console.error("Failed to fetch CPU status", err);
+            }
+        }
+
+        // Update CPU status every 2 seconds
+        setInterval(fetchStatus, 2000);
+        fetchStatus();
 
         // Initial fetch
         fetchTodos();

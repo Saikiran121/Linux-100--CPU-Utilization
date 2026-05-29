@@ -10,6 +10,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.lang.management.ManagementFactory;
+import com.sun.management.OperatingSystemMXBean;
 
 public class TodoWebApp {
     private static final List<String> todos = new ArrayList<>();
@@ -23,6 +25,7 @@ public class TodoWebApp {
         
         server.createContext("/", new StaticHandler());
         server.createContext("/api/todos", new ApiHandler());
+        server.createContext("/api/status", new StatusHandler()); // New endpoint for CPU monitoring
         
         server.setExecutor(null); // creates a default executor
         server.start();
@@ -52,6 +55,30 @@ public class TodoWebApp {
                 }
             } else {
                 exchange.sendResponseHeaders(405, -1); // Method Not Allowed
+            }
+        }
+    }
+
+    static class StatusHandler implements HttpHandler {
+        @Override
+        public void handle(HttpExchange exchange) throws IOException {
+            if ("GET".equals(exchange.getRequestMethod())) {
+                OperatingSystemMXBean osBean = ManagementFactory.getPlatformMXBean(OperatingSystemMXBean.class);
+                
+                // Get the CPU load for the Java process. Returns a value from 0.0 to 1.0.
+                double processCpuLoad = osBean.getProcessCpuLoad();
+                if (processCpuLoad < 0) processCpuLoad = 0.0;
+                
+                // Format as percentage (e.g. 99.5)
+                String response = String.format("{\"cpu\": %.1f}", processCpuLoad * 100);
+                
+                exchange.getResponseHeaders().add("Content-Type", "application/json; charset=UTF-8");
+                exchange.sendResponseHeaders(200, response.length());
+                OutputStream os = exchange.getResponseBody();
+                os.write(response.getBytes());
+                os.close();
+            } else {
+                exchange.sendResponseHeaders(405, -1);
             }
         }
     }
