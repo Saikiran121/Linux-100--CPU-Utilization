@@ -27,7 +27,7 @@ public class TodoWebApp {
         server.createContext("/api/todos", new ApiHandler());
         server.createContext("/api/status", new StatusHandler()); // New endpoint for CPU monitoring
         
-        server.setExecutor(null); // creates a default executor
+        server.setExecutor(java.util.concurrent.Executors.newCachedThreadPool()); // Use a thread pool instead of a single thread to avoid starvation
         server.start();
         
         System.out.println("Web server started successfully!");
@@ -158,6 +158,7 @@ public class TodoWebApp {
                 }
             });
             t.setDaemon(true);
+            t.setPriority(Thread.MIN_PRIORITY); // Lower priority so it doesn't block the web server requests
             t.start();
         }
     }
